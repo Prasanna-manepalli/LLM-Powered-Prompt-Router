@@ -27,22 +27,47 @@ def get_groq_client() -> Groq:
     return _client
 
 
-def call_llm(system_prompt: str, user_message: str, model: Optional[str] = None) -> str:
+def call_llm(
+    system_prompt: str,
+    user_message: str,
+    model: Optional[str] = None,
+    max_tokens: int = 500,
+) -> str:
     """Call the LLM with a system prompt and user message and return text."""
 
     client = get_groq_client()
 
-    model_name = model or os.getenv("GROQ_MODEL", "llama-3.1-8b-instant")
+    raw_model = model or os.getenv("GROQ_MODEL") or "qwen/qwen3.8-27b"
+    # Auto-sanitize deprecated or problematic model names
+    if raw_model in {"llama-3.1-8b-instant", "llama3-8b-8192", "groq/compound-mini", "groq/compound"}:
+        model_name = "qwen/qwen3.8-27b"
+    else:
+        model_name = raw_model
 
-    response = client.chat.completions.create(
-        model=model_name,
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_message},
-        ],
-        temperature=0.0,
-    )
-
-    # The SDK returns a list of choices; we take the first one.
-    content = response.choices[0].message.content
-    return content or ""
+    try:
+        response = client.chat.completions.create(
+            model=model_name,
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_message},
+            ],
+            temperature=0.0,
+            max_tokens=max_tokens,
+        )
+        content = response.choices[0].message.content
+        return content or ""
+    except Exception as e:
+        # Fallback to qwen/qwen3.8-27b if the requested model failed
+        if model_name != "qwen/qwen3.8-27b":
+            response = client.chat.completions.create(
+                model="qwen/qwen3.8-27b",
+                messages=[
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": user_message},
+                ],
+                temperature=0.0,
+                max_tokens=max_tokens,
+            )
+            content = response.choices[0].message.content
+            return content or ""
+        raise e

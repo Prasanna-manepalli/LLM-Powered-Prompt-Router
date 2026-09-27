@@ -87,8 +87,8 @@ def classify_intent(message: str) -> Dict[str, Any]:
     {"intent": "unclear", "confidence": 0.0}.
     """
 
-    classifier_model = os.getenv("CLASSIFIER_MODEL") or os.getenv("GROQ_MODEL")
-    raw = call_llm(CLASSIFIER_SYSTEM_PROMPT, message, model=classifier_model)
+    classifier_model = os.getenv("CLASSIFIER_MODEL") or os.getenv("GROQ_MODEL") or "qwen/qwen3.8-27b"
+    raw = call_llm(CLASSIFIER_SYSTEM_PROMPT, message, model=classifier_model, max_tokens=60)
     result = _parse_classifier_response(raw)
     return result
 
@@ -109,7 +109,9 @@ def _log_routing_decision(
         "final_response": final_response,
     }
 
-    log_path = os.getenv("ROUTE_LOG_PATH", "route_log.jsonl")
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    default_log_path = os.path.join(project_root, "route_log.jsonl")
+    log_path = os.getenv("ROUTE_LOG_PATH", default_log_path)
 
     try:
         # Ensure directory exists if a nested path is provided

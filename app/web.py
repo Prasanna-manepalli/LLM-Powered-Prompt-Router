@@ -19,12 +19,12 @@ class RouteRequest(BaseModel):
 
 PERSONA_DETAILS = {
     "code": {
-        "title": "Software Engineering Expert",
+        "title": "Programming Mentor",
         "icon": "💻",
         "color": "#38bdf8",
         "bg": "rgba(56, 189, 248, 0.12)",
         "border": "rgba(56, 189, 248, 0.35)",
-        "desc": "Generates robust, production-quality code with input validation and architectural clarity.",
+        "desc": "Generates clean, beginner-friendly code with step-by-step explanations.",
     },
     "data": {
         "title": "Senior Data Analyst",
@@ -49,6 +49,14 @@ PERSONA_DETAILS = {
         "bg": "rgba(251, 191, 36, 0.12)",
         "border": "rgba(251, 191, 36, 0.35)",
         "desc": "Delivers realistic, step-by-step career strategies and interview preparation advice.",
+    },
+    "general": {
+        "title": "General Knowledge & Concepts",
+        "icon": "🌐",
+        "color": "#60a5fa",
+        "bg": "rgba(96, 165, 250, 0.12)",
+        "border": "rgba(96, 165, 250, 0.35)",
+        "desc": "Explains general concepts, science, mathematics, reasoning, and everyday topics.",
     },
     "unclear": {
         "title": "Clarification Guardrail",
@@ -244,6 +252,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     .persona-badge.active-data { border-color: var(--data-color); color: var(--data-color); background: rgba(52, 211, 153, 0.1); }
     .persona-badge.active-writing { border-color: var(--writing-color); color: var(--writing-color); background: rgba(192, 132, 252, 0.1); }
     .persona-badge.active-career { border-color: var(--career-color); color: var(--career-color); background: rgba(251, 191, 36, 0.1); }
+    .persona-badge.active-general { border-color: #60a5fa; color: #60a5fa; background: rgba(96, 165, 250, 0.1); }
 
     /* Presets Section */
     .presets-container {
@@ -319,26 +328,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
     .prompt-footer {
       display: flex;
-      justify-content: space-between;
+      justify-content: flex-end;
       align-items: center;
       margin-top: 1rem;
-    }
-
-    .shortcut-hint {
-      font-size: 0.75rem;
-      color: var(--text-muted);
-      display: flex;
-      align-items: center;
-      gap: 0.35rem;
-    }
-
-    .kbd {
-      background: rgba(255, 255, 255, 0.08);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      padding: 0.15rem 0.4rem;
-      border-radius: 4px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 0.7rem;
     }
 
     .btn-submit {
@@ -636,7 +628,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       display: flex;
       flex-direction: column;
       gap: 0.6rem;
-      max-height: 280px;
+      max-height: 480px;
       overflow-y: auto;
     }
 
@@ -722,6 +714,9 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         <div class="persona-badge" id="badge-career">
           <span>💼</span> <span>Career Advisor</span>
         </div>
+        <div class="persona-badge" id="badge-general">
+          <span>🌐</span> <span>General Knowledge</span>
+        </div>
       </div>
 
       <!-- Prompt Input Glass Card -->
@@ -759,10 +754,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             required
           ></textarea>
 
-          <div class="prompt-footer">
-            <div class="shortcut-hint">
-              <span>Press</span> <span class="kbd">Ctrl</span> + <span class="kbd">Enter</span> <span>to route</span>
-            </div>
+          <div class="prompt-footer" style="justify-content: flex-end;">
             <button type="submit" id="btn-submit" class="btn-submit">
               <span>Route & Execute</span>
               <span>⚡</span>
@@ -874,14 +866,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       breaks: true
     });
 
-    // Keyboard shortcut: Ctrl + Enter / Cmd + Enter to submit
-    document.getElementById('user-input').addEventListener('keydown', function(e) {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        document.getElementById('router-form').requestSubmit();
-      }
-    });
-
     function applyPreset(text) {
       const textarea = document.getElementById('user-input');
       textarea.value = text;
@@ -959,7 +943,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     }
 
     function resetBadges() {
-      ['code', 'data', 'writing', 'career'].forEach(key => {
+      ['code', 'data', 'writing', 'career', 'general'].forEach(key => {
         const el = document.getElementById('badge-' + key);
         if (el) el.className = 'persona-badge';
       });
@@ -1054,7 +1038,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
           if (logs && logs.length > 0) {
             const list = document.getElementById('history-list');
             list.innerHTML = '';
-            logs.slice(-6).reverse().forEach(log => {
+            logs.slice(-30).forEach(log => {
               addHistoryItem(log.user_message, log.intent, log.confidence);
             });
           }
@@ -1115,8 +1099,10 @@ async def api_route(payload: RouteRequest) -> JSONResponse:
 @app.get("/api/logs")
 async def get_logs() -> JSONResponse:
     """Return the recent entries from route_log.jsonl."""
+    project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    default_log_path = os.path.join(project_root, "route_log.jsonl")
     log_paths = [
-        os.getenv("ROUTE_LOG_PATH", "route_log.jsonl"),
+        os.getenv("ROUTE_LOG_PATH", default_log_path),
         "/tmp/route_log.jsonl",
     ]
 
@@ -1135,8 +1121,8 @@ async def get_logs() -> JSONResponse:
             except Exception:
                 pass
 
-    # Return last 20 entries
-    return JSONResponse(content=entries[-20:])
+    # Return last 50 entries
+    return JSONResponse(content=entries[-50:])
 
 
 @app.post("/", response_class=HTMLResponse)
